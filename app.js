@@ -148,10 +148,13 @@
         <div class="row"><div class="grow">하루 새 단어 수</div>
           <select id="npd">${[5, 10, 15, 20].map(n => `<option ${n === S.newPerDay ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
         <div class="muted">복습이 쌓이면 20분이 넘을 수 있어요. 10개가 기본이고, 시간이 모자라면 줄여 보세요.</div>
+        <div class="row"><div class="grow">정답/오답 효과음</div>
+          <input type="checkbox" id="sfx" ${S.sfx === false ? '' : 'checked'} style="width:22px;height:22px"></div>
         <button class="ghost" id="reset">학습 기록 초기화</button>
       </div>
       <div class="card muted">일본어 음성은 브라우저/OS에 설치된 일본어 음성을 사용해요. 소리가 안 나면 Windows 설정 → 시간 및 언어 → 언어에서 일본어를 추가하세요.</div>`;
     $app.querySelector('#npd').onchange = e => { S.newPerDay = +e.target.value; S.plan = {}; save(); };
+    $app.querySelector('#sfx').onchange = e => { S.sfx = e.target.checked; save(); };
     $app.querySelector('#reset').onclick = () => { if (confirm('모든 학습 기록이 지워집니다. 계속할까요?')) { S.words = {}; S.log = {}; S.plan = {}; save(); go('home'); } };
   }
 
@@ -253,6 +256,52 @@
     return { prompt: `<div class="sjp">${sayBtn(w.s[0])} ${sayBtn(w.s[0], true)}</div><div class="muted">문장을 듣고 뜻을 고르세요</div>`, opts: pick('mean', x => esc(x.s[2])).map(o => o), say: w.s[0], sent: true };
   }
 
+  // ── 정답/오답 효과 (화면 번쩍임 + 큰 배너 + 색종이 + 효과음 + 진동) ──
+  let combo = 0, actx = null;
+  function tone(freqs, step = 0.12, type = 'sine', vol = 0.18) {
+    if (S.sfx === false) return;
+    try {
+      actx ||= new (window.AudioContext || window.webkitAudioContext)();
+      const t0 = actx.currentTime;
+      freqs.forEach((f, i) => {
+        const o = actx.createOscillator(), g = actx.createGain(), t = t0 + i * step;
+        o.type = type; o.frequency.value = f;
+        g.gain.setValueAtTime(vol, t);
+        g.gain.exponentialRampToValueAtTime(0.001, t + step * 1.7);
+        o.connect(g).connect(actx.destination);
+        o.start(t); o.stop(t + step * 1.8);
+      });
+    } catch {}
+  }
+  function confetti(n) {
+    const cols = ['#d6455d', '#2e9d6b', '#f2b01e', '#3b82f6', '#a855f7'];
+    for (let i = 0; i < n; i++) {
+      const d = document.createElement('i');
+      d.className = 'confetti';
+      d.style.left = 30 + Math.random() * 40 + 'vw';
+      d.style.background = cols[i % cols.length];
+      d.style.setProperty('--dx', Math.random() * 360 - 180 + 'px');
+      d.style.setProperty('--dy', Math.random() * 300 - 40 + 'px');
+      d.style.setProperty('--rot', Math.random() * 720 - 360 + 'deg');
+      document.body.append(d);
+      setTimeout(() => d.remove(), 1200);
+    }
+  }
+  function fx(ok) {
+    combo = ok ? combo + 1 : 0;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const flash = document.createElement('div'), ban = document.createElement('div');
+    flash.className = 'fx-flash ' + (ok ? 'ok' : 'bad');
+    ban.className = 'fx-banner ' + (ok ? 'ok' : 'bad');
+    ban.innerHTML = ok
+      ? `🎉 정답!${combo >= 2 ? `<small>🔥 ${combo}연속 정답</small>` : ''}`
+      : '😵 아쉬워요<small>정답을 확인해 보세요</small>';
+    document.body.append(flash, ban);
+    setTimeout(() => { flash.remove(); ban.remove(); }, 1100);
+    if (ok) { tone([660, 880, 1175]); if (!reduce) confetti(combo >= 3 ? 40 : 24); }
+    else { tone([240, 170], 0.16, 'sawtooth', 0.12); try { navigator.vibrate?.(200); } catch {} }
+  }
+
   function runQuiz(title, items, onAnswer, done) {
     const queue = items.map(i => ({ ...i, tries: 0 }));
     const next = () => {
@@ -271,6 +320,7 @@
         onAnswer(q.id, o.ok, first);
         $app.querySelectorAll('.opt').forEach((b, i) => { b.disabled = true; if (m.opts[i].ok) b.classList.add('ok'); });
         if (!o.ok) btn.classList.add('bad');
+        fx(o.ok);
         queue.shift();
         if (!o.ok) { const fresh = QTYPES.filter(t => !(q.used || []).includes(t)); q.type = fresh.length ? shuffle(fresh)[0] : shuffle(QTYPES)[0]; (q.used ||= []).push(q.type); queue.push(q); }
         $app.querySelector('#fb').innerHTML = wordCard(w) + `<button class="primary" id="nq">${o.ok ? '정답! 다음' : '다음 (이 문제는 다시 나와요)'}</button>`;
