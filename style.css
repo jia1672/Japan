@@ -83,3 +83,26 @@ select { font: inherit; padding: 8px; border-radius: 8px; background: var(--card
   .fx-flash, .opt.ok, .opt.bad { animation: none; }
   @keyframes fxfade { 0%, 80% { opacity: 1; } 100% { opacity: 0; } }
 }
+
+/* 글씨 굵기 위계: 핵심은 굵게, 보조 설명은 가늘게 */
+body { font-weight: 400; }
+h1 { font-weight: 800; }
+h2 { font-weight: 800; }
+h3 { font-weight: 700; }
+nav button { font-weight: 400; }
+nav button.on { font-weight: 800; }
+.stat b { font-weight: 800; }
+.stat span, .muted, .smean { font-weight: 300; }
+.jp { font-weight: 800; }
+.ko, .sko { font-weight: 700; }
+.mean { font-weight: 700; }
+.sjp { font-weight: 700; }
+.opt { font-weight: 700; }
+.opt small { font-weight: 300; }
+.tag { font-weight: 700; }
+.primary { font-weight: 800; }
+.chunk b { font-weight: 800; }
+.chunk .ck { font-weight: 700; }
+.chunk .cm { font-weight: 300; }
+.row b { font-weight: 800; }
+.parts summary { font-weight: 700; }
