@@ -21,7 +21,8 @@
   let S = {};
   try { S = JSON.parse(localStorage.getItem(KEY)) || {}; } catch {}
   S = Object.assign({ words: {}, log: {}, plan: {}, newPerDay: 10 }, S);
-  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+  const localSave = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} };
+  const save = () => { S.upd = Date.now(); localSave(); schedulePush(); };
   const dayLog = () => (S.log[today()] ||= { sec: 0, done: false });
 
   function streak() {
@@ -50,16 +51,155 @@
     return S.plan.ids.filter(id => !S.words[id]);
   }
 
-  // ── 음성 (브라우저 내장 TTS) ──
-  function speak(text, rate = 0.9) {
-    if (!('speechSynthesis' in window)) return;
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'ja-JP'; u.rate = rate;
-    const v = speechSynthesis.getVoices().find(v => v.lang.replace('_', '-').startsWith('ja'));
-    if (v) u.voice = v;
-    speechSynthesis.speak(u);
+  // ── 계정 연동 (Firebase Auth + Firestore) ──
+  // 설정값은 firebase-config.js. 비어 있으면 이 기능은 꺼지고 기존처럼 이 기기에만 저장된다.
+  const FB_CFG = window.FIREBASE_CONFIG;
+  let fb = null, fbUser = null, lastSync = null, syncMsg = '', pushTimer = null, authReady = false;
+  const loadScript = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
+
+  // 두 기기의 기록을 합친다: 단어는 더 최근에 바뀐 쪽, 날짜별 학습은 시간 큰 쪽·완료 OR.
+  // 초기화(epoch)가 더 늦은 쪽이 있으면 그쪽 전체를 따른다.
+  function mergeState(a, b) {
+    const ea = a.epoch || 0, eb = b.epoch || 0;
+    if (ea !== eb) return ea > eb ? a : b;
+    const out = { ...((a.upd || 0) >= (b.upd || 0) ? a : b), words: {}, log: {} };
+    for (const id of new Set([...Object.keys(a.words || {}), ...Object.keys(b.words || {})])) {
+      const x = a.words?.[id], y = b.words?.[id];
+      out.words[id] = !x ? y : !y ? x : (x.u || 0) !== (y.u || 0) ? ((x.u || 0) > (y.u || 0) ? x : y) : (x.box >= y.box ? x : y);
+    }
+    for (const d of new Set([...Object.keys(a.log || {}), ...Object.keys(b.log || {})])) {
+      const x = a.log?.[d] || { sec: 0, done: false }, y = b.log?.[d] || { sec: 0, done: false };
+      out.log[d] = { sec: Math.max(x.sec || 0, y.sec || 0), done: !!(x.done || y.done) };
+    }
+    return out;
   }
+  const normState = s => Object.assign({ words: {}, log: {}, plan: {}, newPerDay: 10 }, s);
+
+  function schedulePush() {
+    if (!fb || !fbUser) return;
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(push, 3000);
+  }
+  async function push() {
+    if (!fb || !fbUser) return;
+    try {
+      await fb.db.doc('users/' + fbUser.uid).set({ state: JSON.stringify(S), upd: S.upd || 0 });
+      lastSync = new Date(); syncMsg = '';
+    } catch { syncMsg = '동기화에 실패했어요. 인터넷 연결을 확인해 주세요.'; }
+    if (view === 'settings') renderSettings();
+  }
+  async function pull() {
+    if (!fb || !fbUser || sess) return;
+    try {
+      // 다른 사람 계정의 기록이 남아 있으면 버리고 새로 시작 (기기를 같이 쓰는 경우)
+      if (S.uid && S.uid !== fbUser.uid) { S = normState({}); localSave(); }
+      const snap = await fb.db.doc('users/' + fbUser.uid).get();
+      if (snap.exists && snap.data().state) {
+        const cloud = JSON.parse(snap.data().state);
+        S = normState(mergeState(S, normState(cloud)));
+      }
+      S.uid = fbUser.uid;
+      localSave();
+      await push();
+      if (view === 'home' && !sess) renderHome();
+    } catch { syncMsg = '기록을 불러오지 못했어요. 인터넷 연결을 확인해 주세요.'; if (view === 'settings') renderSettings(); }
+  }
+  async function initSync() {
+    if (!FB_CFG || !FB_CFG.apiKey) return;
+    try {
+      const base = 'https://www.gstatic.com/firebasejs/10.12.2/';
+      await loadScript(base + 'firebase-app-compat.js');
+      await loadScript(base + 'firebase-auth-compat.js');
+      await loadScript(base + 'firebase-firestore-compat.js');
+      firebase.initializeApp(FB_CFG);
+      fb = { auth: firebase.auth(), db: firebase.firestore() };
+      fb.auth.onAuthStateChanged(async u => {
+        fbUser = u;
+        authReady = true;
+        if (u) await pull();
+        if (!sess) go(view);
+      });
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) pull(); });
+    } catch { syncMsg = '계정 서비스에 연결하지 못했어요. 지금은 이 기기에만 저장돼요.'; authReady = true; if (!sess) go(view); }
+  }
+  // 접속하면 먼저 Google 로그인 화면을 보여 준다 (로그인 전에는 학습 화면이 열리지 않음)
+  function renderGate() {
+    $app.innerHTML = `<div class="card" style="text-align:center;margin-top:24px">
+        <div style="font-size:48px">🇯🇵</div><h2 style="margin:6px 0">하루 20분 일본어 회화</h2>
+        <p class="muted">Google 계정으로 로그인하면 PC·모바일 어디서든 학습 기록과 연속 학습일이 이어져요. 기록은 계정마다 따로 저장돼요.</p>
+        <div id="autherr" style="color:var(--bad);margin:6px 0">${esc(syncMsg)}</div>
+        <button class="primary" id="google">Google로 시작하기</button></div>`;
+    bindAccount();
+  }
+  const AUTH_ERR = {
+    'auth/network-request-failed': '인터넷 연결을 확인해 주세요.',
+    'auth/too-many-requests': '시도가 너무 많아요. 잠시 후 다시 해 주세요.',
+    'auth/popup-closed-by-user': '로그인 창이 닫혔어요.',
+    'auth/unauthorized-domain': '이 주소는 Firebase 승인 도메인에 없어요. (SETUP-ACCOUNT.md 참고)',
+    'auth/operation-not-allowed': 'Firebase에서 이 로그인 방식이 켜져 있지 않아요.',
+  };
+  const authErr = e => AUTH_ERR[e?.code] || '로그인에 실패했어요. (' + (e?.code || e?.message || '알 수 없는 오류') + ')';
+
+  function accountCard() {
+    if (!FB_CFG || !FB_CFG.apiKey)
+      return `<div class="card muted">👤 <b>계정 연동</b>은 아직 설정되지 않았어요. 지금은 이 기기에만 기록이 저장됩니다.</div>`;
+    if (!fb) return `<div class="card muted">👤 계정 서비스에 연결하는 중... ${esc(syncMsg)}</div>`;
+    if (fbUser) return `<div class="card">
+        <b>👤 ${esc(fbUser.displayName || fbUser.email || '로그인됨')}</b>
+        <div class="muted">${esc(fbUser.email || '')}</div>
+        <div class="muted">PC·모바일에서 같은 계정으로 로그인하면 연속 학습일과 단어 기록이 같이 이어져요.${lastSync ? ` · 마지막 동기화 ${pad(lastSync.getHours())}:${pad(lastSync.getMinutes())}` : ''}</div>
+        ${syncMsg ? `<div style="color:var(--bad)">${esc(syncMsg)}</div>` : ''}
+        <button class="ghost" id="syncnow">지금 동기화</button>
+        <button class="ghost" id="logout">로그아웃</button></div>`;
+    return '';
+  }
+  function bindAccount() {
+    const q = s => $app.querySelector(s), err = m => { const e = q('#autherr'); if (e) e.textContent = m; };
+    q('#google')?.addEventListener('click', async () => {
+      const p = new firebase.auth.GoogleAuthProvider();
+      try { await fb.auth.signInWithPopup(p); }
+      catch (e) {
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) { try { await fb.auth.signInWithRedirect(p); } catch (e2) { err(authErr(e2)); } }
+        else err(authErr(e));
+      }
+    });
+    q('#syncnow')?.addEventListener('click', () => pull());
+    q('#logout')?.addEventListener('click', async () => { await push(); await fb.auth.signOut(); S = normState({}); localSave(); fbUser = null; lastSync = null; go('home'); });
+  }
+
+  // ── 음성 (브라우저 내장 TTS) ──
+  // 모바일 대응: 음성 목록은 비동기로 로드되고, 발화 객체가 GC되면 소리가 끊기며,
+  // cancel 직후 바로 speak하면 안드로이드에서 무시되는 문제가 있어 보완한다.
+  let jaVoice = null, utter = null, voiceWarned = false;
+  const pickVoice = () => {
+    if (!('speechSynthesis' in window)) return;
+    const vs = speechSynthesis.getVoices().filter(v => v.lang.replace('_', '-').toLowerCase().startsWith('ja'));
+    jaVoice = vs.find(v => v.localService) || vs[0] || null;
+  };
+  function speak(text, rate = 0.9) {
+    if (!('speechSynthesis' in window)) { warnVoice('이 브라우저는 음성 재생을 지원하지 않아요. Chrome(안드로이드)이나 Safari(아이폰)를 써 보세요.'); return; }
+    if (!jaVoice) pickVoice();
+    if (!jaVoice && !voiceWarned && speechSynthesis.getVoices().length)
+      warnVoice('이 기기에 일본어 음성이 없어서 소리가 나지 않을 수 있어요. 설정 > 언어/음성 > 텍스트 음성 변환에서 일본어를 설치해 주세요.');
+    if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+    setTimeout(() => {
+      utter = new SpeechSynthesisUtterance(text);   // 전역에 잡아 둬야 모바일에서 끊기지 않음
+      utter.lang = 'ja-JP'; utter.rate = rate;
+      if (jaVoice) utter.voice = jaVoice;
+      speechSynthesis.resume();
+      speechSynthesis.speak(utter);
+    }, 60);
+  }
+  function warnVoice(msg) {
+    if (voiceWarned) return;
+    voiceWarned = true;
+    const d = document.createElement('div');
+    d.className = 'card'; d.style.cssText = 'position:fixed;left:12px;right:12px;bottom:12px;z-index:70;border-color:var(--bad)';
+    d.innerHTML = `<div>🔇 ${msg}</div><button class="ghost" style="margin-top:8px">닫기</button>`;
+    d.querySelector('button').onclick = () => d.remove();
+    document.body.appendChild(d);
+  }
+  if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.addEventListener?.('voiceschanged', pickVoice); }
   const sayBtn = (t, slow) => `<button class="icon" data-say="${esc(t)}" ${slow ? 'data-slow="1" title="천천히"' : 'title="듣기"'}>${slow ? '🐢' : '🔊'}</button>`;
 
   // ── 렌더 조각 ──
@@ -90,6 +230,8 @@
   function go(v) {
     view = v;
     document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === v));
+    if (FB_CFG?.apiKey && !authReady) { $app.innerHTML = '<div class="card muted">불러오는 중...</div>'; return; }
+    if (fb && !fbUser) { renderGate(); return; }
     if (v === 'home') renderHome();
     else if (v === 'words') renderWords();
     else if (v === 'settings') renderSettings();
@@ -111,7 +253,7 @@
         <button class="primary" id="start">${news === 0 ? '지난 단어 퀴즈 풀기' : log.sec > 0 && !log.done ? '이어서 하기' : '시작하기'}</button>
         ${news === 0 ? `<button class="ghost" id="extra">새 단어 ${S.newPerDay}개 더 배우기</button>` : ''}
       </div>
-      <div class="card muted">진행 순서: ① 새 단어 학습 → ② 퀴즈 (오늘 새 단어 + 지난 단어, 틀렸던 단어가 더 자주 나와요)<br>🔊 소리를 꼭 따라 말해 보세요. 한글 발음을 보면서 입으로 말하는 게 핵심이에요.</div>`;
+      <div class="card muted">진행 순서: ① 새 단어 학습 → ② 퀴즈 (오늘 새 단어 + 지난 단어, 틀렸던 단어가 더 자주 나와요)<br>🔊 소리를 꼭 따라 말해 보세요. 한글 발음을 보면서 입으로 말하는 게 핵심이에요.${fb && !fbUser ? '<br>👤 <b>설정</b>에서 로그인하면 PC·모바일 기록이 연동돼요.' : ''}</div>`;
     $app.querySelector('#start')?.addEventListener('click', startSession);
     $app.querySelector('#extra')?.addEventListener('click', () => {
       const more = pickNew(S.newPerDay, S.plan.ids);
@@ -143,7 +285,7 @@
   }
 
   function renderSettings() {
-    $app.innerHTML = `
+    $app.innerHTML = accountCard() + `
       <div class="card">
         <div class="row"><div class="grow">하루 새 단어 수</div>
           <select id="npd">${[5, 10, 15, 20].map(n => `<option ${n === S.newPerDay ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
@@ -153,9 +295,10 @@
         <button class="ghost" id="reset">학습 기록 초기화</button>
       </div>
       <div class="card muted">일본어 음성은 브라우저/OS에 설치된 일본어 음성을 사용해요. 소리가 안 나면 Windows 설정 → 시간 및 언어 → 언어에서 일본어를 추가하세요.</div>`;
+    bindAccount();
     $app.querySelector('#npd').onchange = e => { S.newPerDay = +e.target.value; S.plan = {}; save(); };
     $app.querySelector('#sfx').onchange = e => { S.sfx = e.target.checked; save(); };
-    $app.querySelector('#reset').onclick = () => { if (confirm('모든 학습 기록이 지워집니다. 계속할까요?')) { S.words = {}; S.log = {}; S.plan = {}; save(); go('home'); } };
+    $app.querySelector('#reset').onclick = () => { if (confirm('모든 학습 기록이 지워집니다. 계속할까요?')) { S.words = {}; S.log = {}; S.plan = {}; S.epoch = Date.now(); save(); go('home'); } };
   }
 
   // ── 학습 세션 ──
@@ -205,7 +348,7 @@
         ${i > 0 ? '<button class="ghost" id="pv">← 이전 단어</button>' : ''}`;
       $app.querySelector('#pv')?.addEventListener('click', () => { i--; show(); });
       speak(w.jp);
-      S.words[w.jp] ||= { box: 1, due: addDays(today(), 1), miss: 0 };
+      S.words[w.jp] ||= { box: 1, due: addDays(today(), 1), miss: 0, u: Date.now() };
       save();
       $app.querySelector('#nx').onclick = () => { if (++i < ids.length) show(); else stageQuiz(); };
     };
@@ -226,6 +369,7 @@
         st.miss = Math.max(0, (st.miss || 0) - 1);
         if (!sess.news.includes(id) && st.due <= today()) { st.box = Math.min(st.box + 1, INTERVALS.length - 1); st.due = addDays(today(), INTERVALS[st.box]); }
       }
+      st.u = Date.now();
       save();
     }, finish);
   }
@@ -340,4 +484,5 @@
   document.getElementById('logo').onclick = () => go('home');
   if ('speechSynthesis' in window) speechSynthesis.getVoices();
   go('home');
+  initSync();
 })();
