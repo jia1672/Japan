@@ -1,3 +1,9 @@
+/* 한글·영문·숫자는 나눔스퀘어라운드, 일본어(가나·한자)는 Noto Sans JP로 표시한다.
+   나눔스퀘어라운드에는 일본어 글자가 없고 일부 한자가 엉뚱하게 나와서 글자 범위를 한글/영문으로 제한한다. */
+@font-face { font-family: "NSR"; font-weight: 300; font-display: swap; unicode-range: U+0020-007E,U+00A0-00FF,U+2000-206F,U+AC00-D7A3,U+1100-11FF,U+3130-318F; src: url("https://cdn.jsdelivr.net/gh/fonts-archive/NanumSquareRound/NanumSquareRoundL.woff2") format("woff2"); }
+@font-face { font-family: "NSR"; font-weight: 400; font-display: swap; unicode-range: U+0020-007E,U+00A0-00FF,U+2000-206F,U+AC00-D7A3,U+1100-11FF,U+3130-318F; src: url("https://cdn.jsdelivr.net/gh/fonts-archive/NanumSquareRound/NanumSquareRound.woff2") format("woff2"); }
+@font-face { font-family: "NSR"; font-weight: 700; font-display: swap; unicode-range: U+0020-007E,U+00A0-00FF,U+2000-206F,U+AC00-D7A3,U+1100-11FF,U+3130-318F; src: url("https://cdn.jsdelivr.net/gh/fonts-archive/NanumSquareRound/NanumSquareRoundB.woff2") format("woff2"); }
+@font-face { font-family: "NSR"; font-weight: 800; font-display: swap; unicode-range: U+0020-007E,U+00A0-00FF,U+2000-206F,U+AC00-D7A3,U+1100-11FF,U+3130-318F; src: url("https://cdn.jsdelivr.net/gh/fonts-archive/NanumSquareRound/NanumSquareRoundEB.woff2") format("woff2"); }
 :root {
   --bg: #fbf7f2; --card: #fff; --ink: #2b2623; --sub: #7a706a; --line: #eadfd5;
   --accent: #d6455d; --accent-soft: #fde8ec; --ok: #2e9d6b; --ok-soft: #e0f5ec; --bad: #d64545; --bad-soft: #fde5e5;
@@ -7,7 +13,7 @@
     --accent: #ff7a8e; --accent-soft: #3d2328; --ok: #5fd1a0; --ok-soft: #1f3a2f; --bad: #ff7a7a; --bad-soft: #402222; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 "Nanum Square Round", "NanumSquareRound", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 "NSR", "Noto Sans JP", "Yu Gothic", "Meiryo", "Hiragino Sans", "Malgun Gothic", "Apple SD Gothic Neo", system-ui, sans-serif; }
 button, input, select { font-family: inherit; }
 header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; border-bottom: 1px solid var(--line); }
 h1 { font-size: 18px; margin: 0; cursor: pointer; }
