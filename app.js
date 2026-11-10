@@ -388,7 +388,14 @@
 
   // ── 퀴즈 엔진 ──
   function makeQ(type, w) {
-    const others = key => shuffle(WORDS.filter(x => x !== w && x[key] !== w[key]));
+    // 오답 보기는 오늘 배운 단어 + 이전에 학습한 단어에서만 뽑는다 (안 배운 단어가 보이면 찍기가 쉬워지므로).
+    // 학습한 단어가 3개보다 적을 때만 부족한 만큼 전체 단어로 채운다.
+    const learned = Object.keys(S.words).map(id => byId[id]).filter(Boolean);
+    const others = key => {
+      const ok = x => x !== w && x[key] !== w[key];
+      const mine = shuffle(learned.filter(ok));
+      return mine.length >= 3 ? mine : [...mine, ...shuffle(WORDS.filter(x => ok(x) && !mine.includes(x)))];
+    };
     const pick = (key, label) => shuffle([
       { label: label(w), ok: true },
       ...others(key).slice(0, 3).map(x => ({ label: label(x), ok: false })),
