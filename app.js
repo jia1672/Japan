@@ -2,7 +2,7 @@
   const $app = document.getElementById('app');
   const $timer = document.getElementById('timer');
   const KEY = 'japan-study-v1';
-  const GOAL_SEC = 20 * 60;
+  const GOAL_SEC = 10 * 60;
   const INTERVALS = [0, 1, 2, 4, 8, 16, 30]; // 박스별 복습 간격(일)
   const OLD_QUIZ_N = 12; // 퀴즈에 섞는 지난 단어 수
   const QTYPES = ['m1', 'm2', 'listen', 'sent'];
@@ -125,7 +125,7 @@
   // 접속하면 먼저 Google 로그인 화면을 보여 준다 (로그인 전에는 학습 화면이 열리지 않음)
   function renderGate() {
     $app.innerHTML = `<div class="card" style="text-align:center;margin-top:24px">
-        <div style="font-size:48px">🇯🇵</div><h2 style="margin:6px 0">하루 20분 일본어 회화</h2>
+        <div style="font-size:48px">🇯🇵</div><h2 style="margin:6px 0">10분 일본어회화</h2>
         <p class="muted">Google 계정으로 로그인하면 PC·모바일 어디서든 학습 기록과 연속 학습일이 이어져요. 기록은 계정마다 따로 저장돼요.</p>
         <div id="autherr" style="color:var(--bad);margin:6px 0">${esc(syncMsg)}</div>
         <button class="primary" id="google">Google로 시작하기</button></div>`;
@@ -249,7 +249,7 @@
       <div class="card">
         <b>오늘의 학습 ${log.done ? '✅ 완료' : ''}</b>
         <div class="bar"><i style="width:${pct}%"></i></div>
-        <div class="muted">${mmss(log.sec)} / 20:00 · 새 단어 ${news}개 + 지난 단어 퀴즈 ${Math.min(OLD_QUIZ_N, Object.keys(S.words).length)}개</div>
+        <div class="muted">${mmss(log.sec)} / 10:00 · 새 단어 ${news}개 + 지난 단어 퀴즈 ${Math.min(OLD_QUIZ_N, Object.keys(S.words).length)}개</div>
         <button class="primary" id="start">${news === 0 ? '지난 단어 퀴즈 풀기' : log.sec > 0 && !log.done ? '이어서 하기' : '시작하기'}</button>
         ${news === 0 ? `<button class="ghost" id="extra">새 단어 ${S.newPerDay}개 더 배우기</button>` : ''}
       </div>
@@ -289,7 +289,7 @@
       <div class="card">
         <div class="row"><div class="grow">하루 새 단어 수</div>
           <select id="npd">${[5, 10, 15, 20].map(n => `<option ${n === S.newPerDay ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
-        <div class="muted">복습이 쌓이면 20분이 넘을 수 있어요. 10개가 기본이고, 시간이 모자라면 줄여 보세요.</div>
+        <div class="muted">복습이 쌓이면 10분이 넘을 수 있어요. 10개가 기본이고, 시간이 모자라면 줄여 보세요.</div>
         <div class="row"><div class="grow">정답/오답 효과음</div>
           <input type="checkbox" id="sfx" ${S.sfx === false ? '' : 'checked'} style="width:22px;height:22px"></div>
         <button class="ghost" id="reset">학습 기록 초기화</button>
@@ -308,10 +308,10 @@
     ticker = setInterval(() => {
       if (document.hidden) return;
       const l = dayLog(); l.sec++;
-      $timer.textContent = `⏱ ${mmss(l.sec)} / 20:00`;
+      $timer.textContent = `⏱ ${mmss(l.sec)} / 10:00`;
       if (l.sec % 10 === 0) save();
     }, 1000);
-    $timer.textContent = `⏱ ${mmss(dayLog().sec)} / 20:00`;
+    $timer.textContent = `⏱ ${mmss(dayLog().sec)} / 10:00`;
   }
   function stopTimer() { clearInterval(ticker); ticker = null; save(); }
 
