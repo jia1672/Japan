@@ -112,3 +112,24 @@ nav button.on { font-weight: 800; }
 .chunk .cm { font-weight: 300; }
 .row b { font-weight: 800; }
 .parts summary { font-weight: 700; }
+
+/* 단어 학습: 왼쪽 단어 목록 + 진행 단계 */
+main.wide { max-width: 860px; }
+.stagebar { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; font-size: 14px; color: var(--sub); }
+.stagebar .sg.on { background: var(--accent-soft); color: var(--accent); font-weight: 800; border-radius: 99px; padding: 3px 12px; }
+.learn { display: grid; grid-template-columns: 170px 1fr; gap: 16px; align-items: start; }
+.steps { display: flex; flex-direction: column; gap: 6px; position: sticky; top: 12px; max-height: 80vh; overflow-y: auto; }
+.step { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; text-align: left; font: inherit; background: var(--card); color: var(--sub); border: 1px solid var(--line); border-radius: 12px; padding: 8px 10px; cursor: pointer; }
+.step .sn { font-size: 12px; }
+.step b { font-size: 16px; color: var(--ink); font-weight: 700; }
+.step small { width: 100%; font-size: 12px; font-weight: 300; }
+.step.done { background: var(--ok-soft); border-color: transparent; }
+.step.done .sn::after { content: " ✓"; color: var(--ok); }
+.step.on { background: var(--accent-soft); border-color: var(--accent); }
+.step.on b, .step.on .sn { color: var(--accent); font-weight: 800; }
+@media (max-width: 700px) {
+  .learn { grid-template-columns: 1fr; }
+  .steps { flex-direction: row; overflow-x: auto; overflow-y: hidden; position: static; max-height: none; padding-bottom: 4px; }
+  .step { flex: 0 0 auto; flex-wrap: nowrap; align-items: center; }
+  .step small { display: none; }
+}

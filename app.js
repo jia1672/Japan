@@ -225,6 +225,7 @@
   let view = 'home', sess = null;
   function go(v) {
     view = v;
+    $app.classList.remove('wide');
     document.querySelectorAll('[data-nav]').forEach(b => b.classList.toggle('on', b.dataset.nav === v));
     if (FB_CFG?.apiKey && !authReady) { $app.innerHTML = '<div class="card muted">불러오는 중...</div>'; return; }
     if (fb && !fbUser) { renderGate(); return; }
@@ -338,11 +339,18 @@
     let i = 0;
     const show = () => {
       const w = byId[ids[i]];
-      $app.innerHTML = `<div class="muted">① 새 단어 ${i + 1} / ${ids.length}</div>${wordCard(w)}
+      // 왼쪽(모바일은 위쪽)에 오늘 단어 목록과 지금 어디까지 왔는지, 전체 단계(학습 → 퀴즈)를 보여 준다
+      const steps = ids.map((id, k) => `<button class="step ${k === i ? 'on' : k < i ? 'done' : ''}" data-i="${k}">
+          <span class="sn">(${k + 1})</span> <b>${esc(id)}</b><small>${esc(byId[id].ko)}</small></button>`).join('');
+      $app.classList.add('wide');
+      $app.innerHTML = `<div class="stagebar"><span class="sg on">① 새 단어 학습 ${i + 1}/${ids.length}</span><span class="sg">→</span><span class="sg">② 퀴즈</span></div>
+        <div class="learn"><aside class="steps">${steps}</aside><div class="learn-main">${wordCard(w)}
         <div class="muted">🔊 듣고 → 따라 말하기 → 예문도 한 번 소리 내어 읽어 보세요.</div>
         <button class="primary" id="nx">${i + 1 < ids.length ? '다음' : '퀴즈로 확인하기'}</button>
-        ${i > 0 ? '<button class="ghost" id="pv">← 이전 단어</button>' : ''}`;
+        ${i > 0 ? '<button class="ghost" id="pv">← 이전 단어</button>' : ''}</div></div>`;
       $app.querySelector('#pv')?.addEventListener('click', () => { i--; show(); });
+      $app.querySelectorAll('.step').forEach(b => b.onclick = () => { i = +b.dataset.i; show(); });
+      $app.querySelector('.step.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
       speak(w.jp);
       S.words[w.jp] ||= { box: 1, due: addDays(today(), 1), miss: 0, u: Date.now() };
       save();
@@ -353,6 +361,7 @@
 
   // 퀴즈 하나로 합침: 오늘 새 단어 + 지난 단어. 단어마다 한 문제씩, 문제 유형은 골고루 섞는다.
   function stageQuiz() {
+    $app.classList.remove('wide');
     const ids = shuffle([...sess.news, ...pickOld(sess.news, OLD_QUIZ_N)]);
     if (!ids.length) return finish();
     const types = ids.flatMap((_, i) => (i % QTYPES.length === 0 ? shuffle(QTYPES) : [])).slice(0, ids.length);
