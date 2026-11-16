@@ -25,12 +25,8 @@
   const save = () => { S.upd = Date.now(); localSave(); schedulePush(); };
   const dayLog = () => (S.log[today()] ||= { sec: 0, done: false });
 
-  function streak() {
-    let d = today(), c = 0;
-    if (!S.log[d]?.done) d = addDays(d, -1);
-    while (S.log[d]?.done) { c++; d = addDays(d, -1); }
-    return c;
-  }
+  // 학습일수: 오늘 학습을 끝낸 날의 총 개수 (연속 여부와 상관없음)
+  const studyDays = () => Object.values(S.log).filter(l => l.done).length;
   const dueIds = () => Object.entries(S.words).filter(([, v]) => v.due <= today()).map(([id]) => id);
   // 새 단어는 기초(lv1)와 중급(lv2)을 반반 섞어서, 파일에 적힌 순서대로 고른다.
   const BASIC_THEMES = ['기본 표현', '식당', '쇼핑', '길찾기·교통', '일상 대화'];
@@ -126,7 +122,7 @@
   function renderGate() {
     $app.innerHTML = `<div class="card" style="text-align:center;margin-top:24px">
         <div style="font-size:48px">🇯🇵</div><h2 style="margin:6px 0">10분 일본어회화</h2>
-        <p class="muted">Google 계정으로 로그인하면 PC·모바일 어디서든 학습 기록과 연속 학습일이 이어져요. 기록은 계정마다 따로 저장돼요.</p>
+        <p class="muted">Google 계정으로 로그인하면 PC·모바일 어디서든 학습 기록과 학습일수가 이어져요. 기록은 계정마다 따로 저장돼요.</p>
         <div id="autherr" style="color:var(--bad);margin:6px 0">${esc(syncMsg)}</div>
         <button class="primary" id="google">Google로 시작하기</button></div>`;
     bindAccount();
@@ -147,7 +143,7 @@
     if (fbUser) return `<div class="card">
         <b>👤 ${esc(fbUser.displayName || fbUser.email || '로그인됨')}</b>
         <div class="muted">${esc(fbUser.email || '')}</div>
-        <div class="muted">PC·모바일에서 같은 계정으로 로그인하면 연속 학습일과 단어 기록이 같이 이어져요.${lastSync ? ` · 마지막 동기화 ${pad(lastSync.getHours())}:${pad(lastSync.getMinutes())}` : ''}</div>
+        <div class="muted">PC·모바일에서 같은 계정으로 로그인하면 학습일수와 단어 기록이 같이 이어져요.${lastSync ? ` · 마지막 동기화 ${pad(lastSync.getHours())}:${pad(lastSync.getMinutes())}` : ''}</div>
         ${syncMsg ? `<div style="color:var(--bad)">${esc(syncMsg)}</div>` : ''}
         <button class="ghost" id="syncnow">지금 동기화</button>
         <button class="ghost" id="logout">로그아웃</button></div>`;
@@ -242,7 +238,7 @@
     const pct = Math.min(100, Math.round(log.sec / GOAL_SEC * 100));
     $app.innerHTML = `
       <div class="stats">
-        <div class="stat"><b>${streak()}일</b><span>연속 학습</span></div>
+        <div class="stat"><b>${studyDays()}일</b><span>학습일수</span></div>
         <div class="stat"><b>${Object.keys(S.words).length}</b><span>배운 단어 / ${WORDS.length}</span></div>
         <div class="stat"><b>${due}</b><span>복습할 단어</span></div>
       </div>
@@ -380,7 +376,7 @@
     const acc = totalAll ? Math.round(correctAll / totalAll * 100) : 100;
     $app.innerHTML = `<div class="card" style="text-align:center">
       <div style="font-size:48px">🎉</div><h2>오늘 학습 끝!</h2>
-      <p>오늘 학습 시간 <b>${mmss(l.sec)}</b> · 첫 시도 정답률 <b>${acc}%</b><br>연속 <b>${streak()}일</b> 째</p>
+      <p>오늘 학습 시간 <b>${mmss(l.sec)}</b> · 첫 시도 정답률 <b>${acc}%</b><br>학습 <b>${studyDays()}일</b> 째</p>
       <p class="muted">틀린 단어는 내일 다시 나와요. 내일 또 만나요!</p>
       <button class="primary" id="hm">홈으로</button></div>`;
     $app.querySelector('#hm').onclick = () => { $timer.textContent = ''; go('home'); };
