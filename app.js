@@ -327,7 +327,8 @@
   }
 
   function startSession() {
-    sess = { news: planIds() };
+    // 새 단어는 오늘 학습(퀴즈까지)을 끝냈을 때만 '배운 단어'로 저장한다. 그 전까지는 pend에 임시로 둔다.
+    sess = { news: planIds(), pend: {} };
     correctAll = totalAll = 0;
     startTimer();
     stageLearn();
@@ -352,8 +353,6 @@
       $app.querySelectorAll('.step').forEach(b => b.onclick = () => { i = +b.dataset.i; show(); });
       $app.querySelector('.step.on')?.scrollIntoView({ block: 'nearest', inline: 'center' });
       speak(w.jp);
-      S.words[w.jp] ||= { box: 1, due: addDays(today(), 1), miss: 0, u: Date.now() };
-      save();
       $app.querySelector('#nx').onclick = () => { if (++i < ids.length) show(); else stageQuiz(); };
     };
     show();
@@ -368,7 +367,7 @@
     const items = ids.map((id, i) => ({ id, type: types[i], used: [types[i]] }));
     runQuiz('② 퀴즈', items, (id, ok, first) => {
       if (!first) return;
-      const st = S.words[id];
+      const st = S.words[id] || (sess.pend[id] ||= { box: 1, due: addDays(today(), 1), miss: 0, u: Date.now() });
       if (!ok) { st.miss = (st.miss || 0) + 1; st.box = 1; st.due = addDays(today(), 1); }
       else {
         st.miss = Math.max(0, (st.miss || 0) - 1);
@@ -380,6 +379,8 @@
   }
 
   function finish() {
+    // 하루 분량을 끝냈으니 오늘의 새 단어를 배운 단어로 확정한다
+    for (const id of sess?.news || []) S.words[id] ||= sess.pend[id] || { box: 1, due: addDays(today(), 1), miss: 0, u: Date.now() };
     const l = dayLog(); l.done = true;
     stopTimer();
     const acc = totalAll ? Math.round(correctAll / totalAll * 100) : 100;
@@ -395,7 +396,7 @@
   function makeQ(type, w) {
     // 오답 보기는 오늘 배운 단어 + 이전에 학습한 단어에서만 뽑는다 (안 배운 단어가 보이면 찍기가 쉬워지므로).
     // 학습한 단어가 3개보다 적을 때만 부족한 만큼 전체 단어로 채운다.
-    const learned = Object.keys(S.words).map(id => byId[id]).filter(Boolean);
+    const learned = [...new Set([...Object.keys(S.words), ...(sess?.news || [])])].map(id => byId[id]).filter(Boolean);
     const others = key => {
       const ok = x => x !== w && x[key] !== w[key];
       const mine = shuffle(learned.filter(ok));
