@@ -461,10 +461,22 @@
 
   function runQuiz(title, items, onAnswer, done) {
     const queue = items.map(i => ({ ...i, tries: 0 }));
+    const retry = []; // 틀린 문제는 여기에 모았다가 마지막에 한 번 더 푼다 (듀오링고 방식)
+    let inRetry = false;
     const next = () => {
-      if (!queue.length) return done();
+      if (!queue.length) {
+        if (!retry.length) return done();
+        // 본 문제가 끝나면 틀린 문제 안내 화면을 보여 주고 다시 풀게 한다
+        inRetry = true;
+        $app.innerHTML = `<div class="card" style="text-align:center">
+          <div style="font-size:44px">📝</div><h2 style="margin:6px 0">틀린 문제 ${retry.length}개</h2>
+          <p class="muted">틀렸던 문제를 한 번 더 풀어 볼게요.<br>다 맞히면 오늘 학습이 끝나요!</p>
+          <button class="primary" id="rt">틀린 문제 다시 풀기</button></div>`;
+        $app.querySelector('#rt').onclick = () => { queue.push(...retry.splice(0)); next(); };
+        return;
+      }
       const q = queue[0], w = byId[q.id], m = makeQ(q.type, w);
-      $app.innerHTML = `<div class="muted">${title} · 남은 문제 ${queue.length}</div>
+      $app.innerHTML = `<div class="muted">${inRetry ? '<b style="color:var(--bad)">🔁 틀린 문제 다시 풀기</b>' : title} · 남은 문제 ${queue.length}</div>
         <div class="card">${m.prompt}</div>
         <div id="opts">${m.opts.map((o, i) => `<button class="opt" data-i="${i}">${o.label}</button>`).join('')}</div>
         <div id="fb"></div>`;
@@ -479,8 +491,9 @@
         if (!o.ok) btn.classList.add('bad');
         fx(o.ok);
         queue.shift();
-        if (!o.ok) { const fresh = QTYPES.filter(t => !(q.used || []).includes(t)); q.type = fresh.length ? shuffle(fresh)[0] : shuffle(QTYPES)[0]; (q.used ||= []).push(q.type); queue.push(q); }
-        $app.querySelector('#fb').innerHTML = wordCard(w) + `<button class="primary" id="nq">${o.ok ? '정답! 다음' : '다음 (이 문제는 다시 나와요)'}</button>`;
+        if (!o.ok) { const fresh = QTYPES.filter(t => !(q.used || []).includes(t)); q.type = fresh.length ? shuffle(fresh)[0] : shuffle(QTYPES)[0]; (q.used ||= []).push(q.type); retry.push(q); }
+        const last = !queue.length && !retry.length;
+        $app.querySelector('#fb').innerHTML = wordCard(w) + `<button class="primary" id="nq">${o.ok ? (last ? '정답! 마치기' : '정답! 다음') : '다음 (마지막에 다시 풀어요)'}</button>`;
         $app.querySelector('#nq').onclick = next;
       });
     };
