@@ -133,3 +133,11 @@ main.wide { max-width: 860px; }
   .step { flex: 0 0 auto; flex-wrap: nowrap; align-items: center; }
   .step small { display: none; }
 }
+
+/* 오답일 때 보기 번역 */
+.explain { margin: 12px 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
+.ex { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: baseline; padding: 7px 8px; border-radius: 8px; margin-top: 4px; font-size: 15px; }
+.ex i { font-style: normal; color: var(--sub); }
+.ex small { color: var(--sub); font-weight: 300; margin-left: 4px; }
+.ex.ok { background: var(--ok-soft); }
+.ex.bad { background: var(--bad-soft); }

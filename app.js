@@ -402,15 +402,17 @@
       const mine = shuffle(learned.filter(ok));
       return mine.length >= 3 ? mine : [...mine, ...shuffle(WORDS.filter(x => ok(x) && !mine.includes(x)))];
     };
-    const pick = (key, label) => shuffle([
-      { label: label(w), ok: true },
-      ...others(key).slice(0, 3).map(x => ({ label: label(x), ok: false })),
+    // info: 틀렸을 때 각 보기가 실제로 무슨 뜻(어떤 단어)인지 보여 주기 위한 설명
+    const pick = (key, label, info) => shuffle([
+      { label: label(w), info: info(w), ok: true },
+      ...others(key).slice(0, 3).map(x => ({ label: label(x), info: info(x), ok: false })),
     ]);
     const meanLabel = x => esc(x.mean);
-    if (type === 'm1') return { prompt: `<div class="jp">${esc(w.jp)} ${sayBtn(w.jp)}</div><div class="ko">${esc(w.ko)}</div><div class="muted">무슨 뜻일까요?</div>`, opts: pick('mean', meanLabel), say: w.jp };
-    if (type === 'm2') return { prompt: `<div class="mean" style="font-size:26px">${esc(w.mean)}</div><div class="muted">일본어로 알맞은 것은?</div>`, opts: pick('jp', x => `${esc(x.jp)}<small>${esc(x.ko)}</small>`) };
-    if (type === 'listen') return { prompt: `<div style="font-size:42px">${sayBtn(w.jp)}</div><div class="muted">소리를 듣고 뜻을 고르세요 (한글 발음 힌트 없음)</div>`, opts: pick('mean', meanLabel), say: w.jp };
-    return { prompt: `<div class="sjp">${sayBtn(w.s[0])} ${sayBtn(w.s[0], true)}</div><div class="muted">문장을 듣고 뜻을 고르세요</div>`, opts: pick('mean', x => esc(x.s[2])).map(o => o), say: w.s[0], sent: true };
+    const jpInfo = x => `<b>${esc(x.jp)}</b> <span class="ko" style="font-size:14px">${esc(x.ko)}</span>`;
+    if (type === 'm1') return { prompt: `<div class="jp">${esc(w.jp)} ${sayBtn(w.jp)}</div><div class="ko">${esc(w.ko)}</div><div class="muted">무슨 뜻일까요?</div>`, opts: pick('mean', meanLabel, jpInfo), say: w.jp };
+    if (type === 'm2') return { prompt: `<div class="mean" style="font-size:26px">${esc(w.mean)}</div><div class="muted">일본어로 알맞은 것은?</div>`, opts: pick('jp', x => `${esc(x.jp)}<small>${esc(x.ko)}</small>`, x => esc(x.mean)) };
+    if (type === 'listen') return { prompt: `<div style="font-size:42px">${sayBtn(w.jp)}</div><div class="muted">소리를 듣고 뜻을 고르세요 (한글 발음 힌트 없음)</div>`, opts: pick('mean', meanLabel, jpInfo), say: w.jp };
+    return { prompt: `<div class="sjp">${sayBtn(w.s[0])} ${sayBtn(w.s[0], true)}</div><div class="muted">문장을 듣고 뜻을 고르세요</div>`, opts: pick('mean', x => esc(x.s[2]), x => `${esc(x.s[0])} <span class="ko" style="font-size:13px">${esc(x.s[1])}</span>`), say: w.s[0], sent: true };
   }
 
   // ── 정답/오답 효과 (화면 번쩍임 + 큰 배너 + 색종이 + 효과음 + 진동) ──
@@ -493,7 +495,10 @@
         queue.shift();
         if (!o.ok) { const fresh = QTYPES.filter(t => !(q.used || []).includes(t)); q.type = fresh.length ? shuffle(fresh)[0] : shuffle(QTYPES)[0]; (q.used ||= []).push(q.type); retry.push(q); }
         const last = !queue.length && !retry.length;
-        $app.querySelector('#fb').innerHTML = wordCard(w) + `<button class="primary" id="nq">${o.ok ? (last ? '정답! 마치기' : '정답! 다음') : '다음 (마지막에 다시 풀어요)'}</button>`;
+        // 오답이면 보기 4개가 각각 무슨 뜻인지(어떤 단어인지) 함께 보여 준다
+        const explain = o.ok ? '' : `<div class="explain"><div class="muted"><b>📖 보기 번역</b></div>${m.opts.map(x =>
+          `<div class="ex ${x.ok ? 'ok' : x === o ? 'bad' : ''}"><span>${x.label}</span><i>→</i><span>${x.info}</span></div>`).join('')}</div>`;
+        $app.querySelector('#fb').innerHTML = explain + wordCard(w) + `<button class="primary" id="nq">${o.ok ? (last ? '정답! 마치기' : '정답! 다음') : '다음 (마지막에 다시 풀어요)'}</button>`;
         $app.querySelector('#nq').onclick = next;
       });
     };
