@@ -179,7 +179,7 @@
       warnVoice('이 기기에 일본어 음성이 없어서 소리가 나지 않을 수 있어요. 설정 > 언어/음성 > 텍스트 음성 변환에서 일본어를 설치해 주세요.');
     if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
     setTimeout(() => {
-      utter = new SpeechSynthesisUtterance(text);   // 전역에 잡아 둬야 모바일에서 끊기지 않음
+      utter = new SpeechSynthesisUtterance((typeof SAY !== 'undefined' && SAY[text]) || text);   // 전역에 잡아 둬야 모바일에서 끊기지 않음 (한자 한 글자는 히라가나로 읽힘)
       utter.lang = 'ja-JP'; utter.rate = rate;
       if (jaVoice) utter.voice = jaVoice;
       speechSynthesis.resume();
