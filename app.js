@@ -495,8 +495,8 @@
         queue.shift();
         if (!o.ok) { const fresh = QTYPES.filter(t => !(q.used || []).includes(t)); q.type = fresh.length ? shuffle(fresh)[0] : shuffle(QTYPES)[0]; (q.used ||= []).push(q.type); retry.push(q); }
         const last = !queue.length && !retry.length;
-        // 오답이면 보기 4개가 각각 무슨 뜻인지(어떤 단어인지) 함께 보여 준다
-        const explain = o.ok ? '' : `<div class="explain"><div class="muted"><b>📖 보기 번역</b></div>${m.opts.map(x =>
+        // 정답·오답 모두 보기 4개가 각각 무슨 뜻인지(어떤 단어인지) 함께 보여 준다
+        const explain = `<div class="explain"><div class="muted"><b>📖 보기 번역</b></div>${m.opts.map(x =>
           `<div class="ex ${x.ok ? 'ok' : x === o ? 'bad' : ''}"><span>${x.label}</span><i>→</i><span>${x.info}</span></div>`).join('')}</div>`;
         $app.querySelector('#fb').innerHTML = explain + wordCard(w) + `<button class="primary" id="nq">${o.ok ? (last ? '정답! 마치기' : '정답! 다음') : '다음 (마지막에 다시 풀어요)'}</button>`;
         $app.querySelector('#nq').onclick = next;
