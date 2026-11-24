@@ -134,10 +134,11 @@ main.wide { max-width: 860px; }
   .step small { display: none; }
 }
 
-/* 오답일 때 보기 번역 */
-.explain { margin: 12px 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; }
-.ex { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; align-items: baseline; padding: 7px 8px; border-radius: 8px; margin-top: 4px; font-size: 15px; }
-.ex i { font-style: normal; color: var(--sub); }
-.ex small { color: var(--sub); font-weight: 300; margin-left: 4px; }
-.ex.ok { background: var(--ok-soft); }
-.ex.bad { background: var(--bad-soft); }
+/* 답을 고르면 보기 옆에 번역 표시 */
+.opt.shown { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; opacity: 1; }
+.opt.shown .ol { flex: 1 1 38%; }
+.opt.shown .oi { flex: 1 1 52%; color: var(--sub); font-size: 14px; font-weight: 400; }
+.opt.shown .oi i { font-style: normal; margin-right: 2px; }
+.opt.shown .oi b { color: var(--ink); }
+.opt.shown small { display: inline; margin-left: 4px; }
+.opt.ok .oi, .opt.bad .oi { color: var(--ink); }

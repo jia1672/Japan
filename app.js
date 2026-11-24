@@ -489,16 +489,18 @@
         const first = q.tries === 1;
         if (first) { totalAll++; if (o.ok) correctAll++; }
         onAnswer(q.id, o.ok, first);
-        $app.querySelectorAll('.opt').forEach((b, i) => { b.disabled = true; if (m.opts[i].ok) b.classList.add('ok'); });
+        // 답을 고르면 각 보기 옆에 그 보기가 무슨 뜻인지(어떤 단어인지) 바로 보여 준다
+        $app.querySelectorAll('.opt').forEach((b, i) => {
+          b.disabled = true; if (m.opts[i].ok) b.classList.add('ok');
+          b.classList.add('shown');
+          b.innerHTML = `<span class="ol">${m.opts[i].label}</span><span class="oi"><i>→</i> ${m.opts[i].info}</span>`;
+        });
         if (!o.ok) btn.classList.add('bad');
         fx(o.ok);
         queue.shift();
         if (!o.ok) { const fresh = QTYPES.filter(t => !(q.used || []).includes(t)); q.type = fresh.length ? shuffle(fresh)[0] : shuffle(QTYPES)[0]; (q.used ||= []).push(q.type); retry.push(q); }
         const last = !queue.length && !retry.length;
-        // 정답·오답 모두 보기 4개가 각각 무슨 뜻인지(어떤 단어인지) 함께 보여 준다
-        const explain = `<div class="explain"><div class="muted"><b>📖 보기 번역</b></div>${m.opts.map(x =>
-          `<div class="ex ${x.ok ? 'ok' : x === o ? 'bad' : ''}"><span>${x.label}</span><i>→</i><span>${x.info}</span></div>`).join('')}</div>`;
-        $app.querySelector('#fb').innerHTML = explain + wordCard(w) + `<button class="primary" id="nq">${o.ok ? (last ? '정답! 마치기' : '정답! 다음') : '다음 (마지막에 다시 풀어요)'}</button>`;
+        $app.querySelector('#fb').innerHTML = wordCard(w) + `<button class="primary" id="nq">${o.ok ? (last ? '정답! 마치기' : '정답! 다음') : '다음 (마지막에 다시 풀어요)'}</button>`;
         $app.querySelector('#nq').onclick = next;
       });
     };
